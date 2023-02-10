@@ -54,6 +54,8 @@ New library features
 * The `initialized=true` keyword assignment for `sortperm!` and `partialsortperm!`
   is now a no-op ([#47979]). It previously exposed unsafe behavior ([#47977]).
 * `binomial(x, k)` now supports non-integer `x` ([#48124]).
+* `replace(string, pattern...)` now supports an optional `IO` argument to
+  write the output to a stream rather than returning a string ([#48625]).
 * A `CartesianIndex` is now treated as a "scalar" for broadcasting ([#47044]).
 * `printstyled` now supports italic output ([#45164]).
 * `parent` and `parentindices` support `SubString`s
