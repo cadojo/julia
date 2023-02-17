@@ -48,7 +48,7 @@ New library functions
 * `fourthroot(x)` is now defined in `Base.Math` and can be used to compute the fourth root of `x`.
    It can also be accessed using the unicode character `∜`, which can be typed by `\fourthroot<tab>` ([#48899]).
 * `Libc.memmove`, `Libc.memset`, and `Libc.memcpy` are now defined, whose functionality matches that of their respective C calls.
-* `copyuntil(out, io, delim)` copies data into an `out` stream` until `delim` ([#48273]).
+* `copyuntil(out, io, delim)` and `copyline(out, io)` copy data into an `out::IO` stream ([#48273]).
 
 New library features
 --------------------
