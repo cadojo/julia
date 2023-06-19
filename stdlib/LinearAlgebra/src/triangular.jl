@@ -1306,99 +1306,53 @@ function generic_mattridiv!(C::AbstractMatrix, uploc, isunitc, tfun::Function, A
     if size(C) != size(A)
         throw(DimensionMismatch("size of output, $(size(C)), does not match size of left hand side, $(size(A))"))
     end
-    if uploc == 'U'
-        if isunitc == 'N'
-            if tfun === identity
-                @inbounds for i in 1:m
-                    for j in 1:n
-                        Aij = A[i,j]
-                        for k in 1:j - 1
-                            Aij -= C[i,k]*tfun(B[k,j])
-                        end
-                        iszero(B[j,j]) && throw(SingularException(j))
-                        C[i,j] = Aij / tfun(B[j,j])
+    oB = oneunit(eltype(B))
+    unit = isunitc == 'U'
+    @inbounds if uploc == 'U'
+        if tfun === identity
+            for i in 1:m
+                for j in 1:n
+                    Aij = A[i,j]
+                    for k in 1:j - 1
+                        Aij -= C[i,k]*B[k,j]
                     end
-                end
-            else # tfun in (adjoint, transpose)
-                @inbounds for i in 1:m
-                    for j in n:-1:1
-                        Aij = A[i,j]
-                        for k in j + 1:n
-                            Aij -= C[i,k]*tfun(B[j,k])
-                        end
-                        iszero(B[j,j]) && throw(SingularException(j))
-                        C[i,j] = Aij / tfun(B[j,j])
-                    end
+                    unit || (iszero(B[j,j]) && throw(SingularException(j)))
+                    C[i,j] = Aij / (unit ? oB : B[j,j])
                 end
             end
-        else # isunitc == 'U'
-            if tfun === identity
-                @inbounds for i in 1:m
-                    for j in 1:n
-                        Aij = A[i,j]
-                        for k in 1:j - 1
-                            Aij -= C[i,k]*tfun(B[k,j])
-                        end
-                        C[i,j] = Aij / oneunit(eltype(B))
+        else # tfun in (adjoint, transpose)
+            for i in 1:m
+                for j in n:-1:1
+                    Aij = A[i,j]
+                    for k in j + 1:n
+                        Aij -= C[i,k]*tfun(B[j,k])
                     end
-                end
-            else # tfun in (adjoint, transpose)
-                @inbounds for i in 1:m
-                    for j in n:-1:1
-                        Aij = A[i,j]
-                        for k in j + 1:n
-                            Aij -= C[i,k]*tfun(B[j,k])
-                        end
-                        C[i,j] = Aij / oneunit(eltype(B))
-                    end
+                    unit || (iszero(B[j,j]) && throw(SingularException(j)))
+                    C[i,j] = Aij / (unit ? oB : tfun(B[j,j]))
                 end
             end
         end
     else # uploc == 'L'
-        if isunitc == 'N'
-            if tfun === identity
-                @inbounds for i in 1:m
-                    for j in n:-1:1
-                        Aij = A[i,j]
-                        for k in j + 1:n
-                            Aij -= C[i,k]*tfun(B[k,j])
-                        end
-                        iszero(B[j,j]) && throw(SingularException(j))
-                        C[i,j] = Aij / tfun(B[j,j])
+        if tfun === identity
+            for i in 1:m
+                for j in n:-1:1
+                    Aij = A[i,j]
+                    for k in j + 1:n
+                        Aij -= C[i,k]*B[k,j]
                     end
-                end
-            else # tfun in (adjoint, transpose)
-                @inbounds for i in 1:m
-                    for j in 1:n
-                        Aij = A[i,j]
-                        for k in 1:j - 1
-                            Aij -= C[i,k]*tfun(B[j,k])
-                        end
-                        iszero(B[j,j]) && throw(SingularException(j))
-                        C[i,j] = Aij / tfun(B[j,j])
-                    end
+                    unit || (iszero(B[j,j]) && throw(SingularException(j)))
+                    C[i,j] = Aij / (unit ? oB : B[j,j])
                 end
             end
-        else # isunitc == 'U'
-            if tfun === identity
-                @inbounds for i in 1:m
-                    for j in n:-1:1
-                        Aij = A[i,j]
-                        for k in j + 1:n
-                            Aij -= C[i,k]*tfun(B[k,j])
-                        end
-                        C[i,j] = Aij / oneunit(eltype(B))
+        else # tfun in (adjoint, transpose)
+            for i in 1:m
+                for j in 1:n
+                    Aij = A[i,j]
+                    for k in 1:j - 1
+                        Aij -= C[i,k]*tfun(B[j,k])
                     end
-                end
-            else # tfun in (adjoint, transpose)
-                @inbounds for i in 1:m
-                    for j in 1:n
-                        Aij = A[i,j]
-                        for k in 1:j - 1
-                            Aij -= C[i,k]*tfun(B[j,k])
-                        end
-                        C[i,j] = Aij / oneunit(eltype(B))
-                    end
+                    unit || (iszero(B[j,j]) && throw(SingularException(j)))
+                    C[i,j] = Aij / (unit ? oB : tfun(B[j,j]))
                 end
             end
         end
@@ -1415,50 +1369,28 @@ function generic_mattridiv!(C::AbstractMatrix, uploc, isunitc, ::Function, A::Ab
     if size(C) != size(A)
         throw(DimensionMismatch("size of output, $(size(C)), does not match size of left hand side, $(size(A))"))
     end
+    oB = oneunit(eltype(B))
+    unit = isunitc == 'U'
     if uploc == 'U'
-        if isunitc == 'N'
-            @inbounds for i in 1:m
-                for j in 1:n
-                    Aij = A[i,j]
-                    for k in 1:j - 1
-                        Aij -= C[i,k]*conj(B[k,j])
-                    end
-                    iszero(B[j,j]) && throw(SingularException(j))
-                    C[i,j] = Aij / conj(B[j,j])
+        @inbounds for i in 1:m
+            for j in 1:n
+                Aij = A[i,j]
+                for k in 1:j - 1
+                    Aij -= C[i,k]*conj(B[k,j])
                 end
-            end
-        else # isunitc == 'U'
-            @inbounds for i in 1:m
-                for j in 1:n
-                    Aij = A[i,j]
-                    for k in 1:j - 1
-                        Aij -= C[i,k]*conj(B[k,j])
-                    end
-                    C[i,j] = Aij / oneunit(eltype(B))
-                end
+                unit || (iszero(B[j,j]) && throw(SingularException(j)))
+                C[i,j] = Aij / (unit ? oB : conj(B[j,j]))
             end
         end
     else # uploc == 'L'
-        if isunitc == 'N'
-            @inbounds for i in 1:m
-                for j in n:-1:1
-                    Aij = A[i,j]
-                    for k in j + 1:n
-                        Aij -= C[i,k]*conj(B[k,j])
-                    end
-                    iszero(B[j,j]) && throw(SingularException(j))
-                    C[i,j] = Aij / conj(B[j,j])
+        @inbounds for i in 1:m
+            for j in n:-1:1
+                Aij = A[i,j]
+                for k in j + 1:n
+                    Aij -= C[i,k]*conj(B[k,j])
                 end
-            end
-        else # isunitc == 'U'
-            @inbounds for i in 1:m
-                for j in n:-1:1
-                    Aij = A[i,j]
-                    for k in j + 1:n
-                        Aij -= C[i,k]*conj(B[k,j])
-                    end
-                    C[i,j] = Aij / oneunit(eltype(B))
-                end
+                unit || (iszero(B[j,j]) && throw(SingularException(j)))
+                C[i,j] = Aij / (unit ? oB : conj(B[j,j]))
             end
         end
     end
