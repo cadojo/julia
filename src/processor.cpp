@@ -513,6 +513,22 @@ parse_cmdline(const char *option, F &&feature_cb)
     std::vector<TargetData<n>> res;
     TargetData<n> arg{};
     auto reset_arg = [&] {
+        if (arg.en.flags & JL_TARGET_CLONE_ALL) {
+            if (arg.base != -1) {
+                jl_error("Conflicting target option: clone_all and base cannot be used together.");
+            }
+            arg.base = 0;
+        } else {
+            if (arg.base == -1) {
+                if (arg.dis.flags & JL_TARGET_CLONE_ALL) {
+                    jl_error("Conflicting target option: clone_all must not be disabled if base is not provided.");
+                }
+                // Don't specify target 0 as clone_all; it's implicitly clone_all, since it gets the default function set
+                if (!res.empty())
+                    arg.en.flags |= JL_TARGET_CLONE_ALL;
+                arg.base = 0;
+            }
+        }
         res.push_back(arg);
         arg.name.clear();
         arg.ext_features.clear();
@@ -520,7 +536,9 @@ parse_cmdline(const char *option, F &&feature_cb)
         memset(&arg.dis.features[0], 0, 4 * n);
         arg.en.flags = 0;
         arg.dis.flags = 0;
+        arg.base = -1;
     };
+    arg.base = -1;
     const char *start = option;
     for (const char *p = option; ; p++) {
         switch (*p) {
