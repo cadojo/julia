@@ -1112,9 +1112,6 @@ end
 
 #Generic solver using naive substitution
 
-_uconvert_copyto!(c, b, oA) = (c .= Ref(oA) .\ b)
-_uconvert_copyto!(c::AbstractArray{T}, b::AbstractArray{T}, _) where {T} = copyto!(c, b)
-
 @inline _ustrip(a) = oneunit(a) \ a
 @inline _ustrip(a::Union{AbstractFloat,Integer,Complex,Rational}) = a
 
@@ -1135,23 +1132,29 @@ function generic_trimatdiv!(C::AbstractVecOrMat, uploc, isunitc, tfun::Function,
         throw(DimensionMismatch("size of output, $(size(C)), does not match size of right hand side, $(size(B))"))
     end
     oA = oneunit(eltype(A))
-    C !== B && _uconvert_copyto!(C, B, oneunit(eltype(A)))
-    if uploc == 'U'
+    @inbounds if uploc == 'U'
         if isunitc == 'N'
             if tfun === identity
                 for k in 1:n
-                    @inbounds for j in m:-1:1
-                        ajj = tfun(A[j,j])
+                    amm = A[m,m]
+                    iszero(amm) && throw(SingularException(m))
+                    Cm = C[m,k] = amm \ B[m,k]
+                    # fill C-column
+                    for i in m-1:-1:1
+                        C[i,k] = oA \ B[i,k] - _ustrip(A[i,m]) * Cm
+                    end
+                    for j in m-1:-1:1
+                        ajj = A[j,j]
                         iszero(ajj) && throw(SingularException(j))
                         Cj = C[j,k] = _ustrip(ajj) \ C[j,k]
                         for i in j-1:-1:1
-                            C[i,k] -= _ustrip(tfun(A[i,j])) * Cj
+                            C[i,k] -= _ustrip(A[i,j]) * Cj
                         end
                     end
                 end
             else # tfun in (adjoint, transpose)
                 for k in 1:n
-                    @inbounds for j in 1:m
+                    for j in 1:m
                         ajj = A[j,j]
                         iszero(ajj) && throw(SingularException(j))
                         Bj = B[j,k]
@@ -1165,16 +1168,21 @@ function generic_trimatdiv!(C::AbstractVecOrMat, uploc, isunitc, tfun::Function,
         else # isunitc == 'U'
             if tfun === identity
                 for k in 1:n
-                    @inbounds for j in m:-1:1
+                    Cm = C[m,k] = oA \ B[m,k]
+                    # fill C-column
+                    for i in m-1:-1:1
+                        C[i,k] = oA \ B[i,k] - _ustrip(A[i,m]) * Cm
+                    end
+                    for j in m-1:-1:1
                         Cj = C[j,k]
                         for i in 1:j-1
-                            C[i,k] -= _ustrip(tfun(A[i,j])) * Cj
+                            C[i,k] -= _ustrip(A[i,j]) * Cj
                         end
                     end
                 end
             else # tfun in (adjoint, transpose)
                 for k in 1:n
-                    @inbounds for j in 1:m
+                    for j in 1:m
                         Bj = B[j,k]
                         for i in 1:j-1
                             Bj -= tfun(A[i,j]) * C[i,k]
@@ -1187,19 +1195,26 @@ function generic_trimatdiv!(C::AbstractVecOrMat, uploc, isunitc, tfun::Function,
     else # uploc == 'L'
         if isunitc == 'N'
             if tfun === identity
+                a11 = A[1,1]
+                iszero(a11) && throw(SingularException(1))
+                C1 = C[1,k] = a11 \ B[1,k]
+                # fill C-column
+                for i in 2:m
+                    C[i,k] = oA \ B[i,k] - _ustrip(A[i,1]) * C1
+                end
                 for k in 1:n
-                    @inbounds for j in 1:m
-                        ajj = tfun(A[j,j])
+                    for j in 2:m
+                        ajj = A[j,j]
                         iszero(ajj) && throw(SingularException(j))
                         Cj = C[j,k] = _ustrip(ajj) \ C[j,k]
                         for i in j+1:m
-                            C[i,k] -= _ustrip(tfun(A[i,j])) * Cj
+                            C[i,k] -= _ustrip(A[i,j]) * Cj
                         end
                     end
                 end
             else # tfun in (adjoint, transpose)
                 for k in 1:n
-                    @inbounds for j in m:-1:1
+                    for j in m:-1:1
                         ajj = A[j,j]
                         iszero(ajj) && throw(SingularException(j))
                         Bj = B[j,k]
@@ -1212,17 +1227,22 @@ function generic_trimatdiv!(C::AbstractVecOrMat, uploc, isunitc, tfun::Function,
             end
         else # isunitc == 'U'
             if tfun === identity
+                C1 = C[1,k] = oA \ B[1,k]
+                # fill C-column
+                for i in 2:m
+                    C[i,k] = oA \ B[i,k] - _ustrip(A[i,1]) * C1
+                end
                 for k in 1:n
-                    @inbounds for j in 1:m
+                    for j in 2:m
                         Cj = C[j,k]
                         for i in j+1:m
-                            C[i,k] -= _ustrip(tfun(A[i,j])) * Cj
+                            C[i,k] -= _ustrip(A[i,j]) * Cj
                         end
                     end
                 end
             else # tfun in (adjoint, transpose)
                 for k in 1:n
-                    @inbounds for j in m:-1:1
+                    for j in m:-1:1
                         Bj = B[j,k]
                         for i in j+1:m
                             Bj -= tfun(A[i,j]) * C[i,k]
@@ -1248,11 +1268,17 @@ function generic_trimatdiv!(C::AbstractVecOrMat, uploc, isunitc, ::Function, xA:
         throw(DimensionMismatch("size of output, $(size(C)), does not match size of right hand side, $(size(B))"))
     end
     oA = oneunit(eltype(A))
-    C !== B && _uconvert_copyto!(C, B, oneunit(eltype(A)))
-    if uploc == 'U'
+    @inbounds if uploc == 'U'
         if isunitc == 'N'
             for k in 1:n
-                @inbounds for j in m:-1:1
+                amm = conj(A[m,m])
+                iszero(amm) && throw(SingularException(m))
+                Cm = C[m,k] = amm \ B[m,k]
+                # fill C-column
+                for i in m-1:-1:1
+                    C[i,k] = oA \ B[i,k] - _ustrip(conj(A[i,m])) * Cm
+                end
+                for j in m-1:-1:1
                     ajj = conj(A[j,j])
                     iszero(ajj) && throw(SingularException(j))
                     Cj = C[j,k] = _ustrip(ajj) \ C[j,k]
@@ -1263,7 +1289,12 @@ function generic_trimatdiv!(C::AbstractVecOrMat, uploc, isunitc, ::Function, xA:
             end
         else # isunitc == 'U'
             for k in 1:n
-                @inbounds for j in m:-1:1
+                Cm = C[m,k] = amm \ B[m,k]
+                # fill C-column
+                for i in m-1:-1:1
+                    C[i,k] = oA \ B[i,k] - _ustrip(conj(A[i,m])) * Cm
+                end
+                for j in m-1:-1:1
                     Cj = C[j,k]
                     for i in 1:j-1
                         C[i,k] -= _ustrip(conj(A[i,j])) * Cj
@@ -1274,7 +1305,14 @@ function generic_trimatdiv!(C::AbstractVecOrMat, uploc, isunitc, ::Function, xA:
     else # uploc == 'L'
         if isunitc == 'N'
             for k in 1:n
-                @inbounds for j in 1:m
+                a11 = conj(A[1,1])
+                iszero(a11) && throw(SingularException(1))
+                C1 = C[1,k] = a11 \ B[1,k]
+                # fill C-column
+                for i in 2:m
+                    C[i,k] = oA \ B[i,k] - _ustrip(A[i,1]) * C1
+                end
+                for j in 2:m
                     ajj = conj(A[j,j])
                     iszero(ajj) && throw(SingularException(j))
                     Cj = C[j,k] = _ustrip(ajj) \ C[j,k]
@@ -1285,7 +1323,12 @@ function generic_trimatdiv!(C::AbstractVecOrMat, uploc, isunitc, ::Function, xA:
             end
         else # isunitc == 'U'
             for k in 1:n
-                @inbounds for j in 1:m
+                C1 = C[1,k] = oA \ B[1,k]
+                # fill C-column
+                for i in 2:m
+                    C[i,k] = oA \ B[i,k] - _ustrip(A[i,1]) * C1
+                end
+                for j in 1:m
                     Cj = C[j,k]
                     for i in j+1:m
                         C[i,k] -= _ustrip(conj(A[i,j])) * Cj
