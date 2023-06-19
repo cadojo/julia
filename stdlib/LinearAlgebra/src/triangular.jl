@@ -923,95 +923,49 @@ function generic_trimatmul!(C::AbstractVecOrMat, uploc, isunitc, tfun::Function,
     if mc != N || nc != n
         throw(DimensionMismatch("output has dimensions ($mc,$nc), should have ($N,$n)"))
     end
-    if uploc == 'U'
-        if isunitc == 'N'
-            if tfun === identity
-                @inbounds for j in 1:n
-                    for i in 1:m
-                        Cij = tfun(A[i,i]) * B[i,j]
-                        for k in i + 1:m
-                            Cij += tfun(A[i,k]) * B[k,j]
-                        end
-                        C[i,j] = Cij
+    oA = oneunit(eltype(A))
+    unit = isunitc == 'U'
+    @inbounds if uploc == 'U'
+        if tfun === identity
+            for j in 1:n
+                for i in 1:m
+                    Cij = (unit ? oA : A[i,i]) * B[i,j]
+                    for k in i + 1:m
+                        Cij += A[i,k] * B[k,j]
                     end
-                end
-            else # tfun in (transpose, adjoint)
-                @inbounds for j in 1:n
-                    for i in m:-1:1
-                        Cij = tfun(A[i,i]) * B[i,j]
-                        for k in 1:i - 1
-                            Cij += tfun(A[k,i]) * B[k,j]
-                        end
-                        C[i,j] = Cij
-                    end
+                    C[i,j] = Cij
                 end
             end
-        else # unitc == 'U'
-            if tfun === identity
-                @inbounds for j in 1:n
-                    for i in 1:m
-                        Cij = oneunit(eltype(A)) * B[i,j]
-                        for k in i + 1:m
-                            Cij += tfun(A[i,k]) * B[k,j]
-                        end
-                        C[i,j] = Cij
+        else # tfun in (transpose, adjoint)
+            for j in 1:n
+                for i in m:-1:1
+                    Cij = (unit ? oA : tfun(A[i,i])) * B[i,j]
+                    for k in 1:i - 1
+                        Cij += tfun(A[k,i]) * B[k,j]
                     end
-                end
-            else # tfun in (transpose, adjoint)
-                @inbounds for j in 1:n
-                    for i in m:-1:1
-                        Cij = oneunit(eltype(A)) * B[i,j]
-                        for k in 1:i - 1
-                            Cij += tfun(A[k,i]) * B[k,j]
-                        end
-                        C[i,j] = Cij
-                    end
+                    C[i,j] = Cij
                 end
             end
         end
     else # uploc == 'L'
-        if isunitc == 'N'
-            if tfun === identity
-                @inbounds for j in 1:n
-                    for i in m:-1:1
-                        Cij = tfun(A[i,i]) * B[i,j]
-                        for k in 1:i - 1
-                            Cij += tfun(A[i,k]) * B[k,j]
-                        end
-                        C[i,j] = Cij
+        if tfun === identity
+            for j in 1:n
+                for i in m:-1:1
+                    Cij = (unit ? oA : A[i,i]) * B[i,j]
+                    for k in 1:i - 1
+                        Cij += A[i,k] * B[k,j]
                     end
-                end
-            else # tfun in (transpose, adjoint)
-                @inbounds for j in 1:n
-                    for i in 1:m
-                        Cij = tfun(A[i,i]) * B[i,j]
-                        for k in i + 1:m
-                            Cij += tfun(A[k,i]) * B[k,j]
-                        end
-                        C[i,j] = Cij
-                    end
+                    C[i,j] = Cij
                 end
             end
-        else # isunitc == 'U'
-            if tfun === identity
-                @inbounds for j in 1:n
-                    for i in m:-1:1
-                        Cij = oneunit(eltype(A)) * B[i,j]
-                        for k in 1:i - 1
-                            Cij += tfun(A[i,k]) * B[k,j]
-                        end
-                        C[i,j] = Cij
+        else # tfun in (transpose, adjoint)
+            for j in 1:n
+                for i in 1:m
+                    Cij = (unit ? oA : tfun(A[i,i])) * B[i,j]
+                    for k in i + 1:m
+                        Cij += tfun(A[k,i]) * B[k,j]
                     end
-                end
-            else # tfun in (transpose, adjoint)
-                @inbounds for j in 1:n
-                    for i in 1:m
-                        Cij = oneunit(eltype(A)) * B[i,j]
-                        for k in i + 1:m
-                            Cij += tfun(A[k,i]) * B[k,j]
-                        end
-                        C[i,j] = Cij
-                    end
+                    C[i,j] = Cij
                 end
             end
         end
@@ -1031,48 +985,26 @@ function generic_trimatmul!(C::AbstractVecOrMat, uploc, isunitc, ::Function, xA:
     if mc != N || nc != n
         throw(DimensionMismatch("output has dimensions ($mc,$nc), should have ($N,$n)"))
     end
-    if uploc == 'U'
-        if isunitc == 'N'
-            @inbounds for j in 1:n
-                for i in 1:m
-                    Cij = conj(A[i,i]) * B[i,j]
-                    for k in i + 1:m
-                        Cij += conj(A[i,k]) * B[k,j]
-                    end
-                    C[i,j] = Cij
+    oA = oneunit(eltype(A))
+    unit = isunitc == 'U'
+    @inbounds if uploc == 'U'
+        for j in 1:n
+            for i in 1:m
+                Cij = (unit ? oA : conj(A[i,i])) * B[i,j]
+                for k in i + 1:m
+                    Cij += conj(A[i,k]) * B[k,j]
                 end
-            end
-        else # unitc == 'U'
-            @inbounds for j in 1:n
-                for i in 1:m
-                    Cij = oneunit(eltype(A)) * B[i,j]
-                    for k in i + 1:m
-                        Cij += conj(A[i,k]) * B[k,j]
-                    end
-                    C[i,j] = Cij
-                end
+                C[i,j] = Cij
             end
         end
     else # uploc == 'L'
-        if isunitc == 'N'
-            @inbounds for j in 1:n
-                for i in m:-1:1
-                    Cij = conj(A[i,i]) * B[i,j]
-                    for k in 1:i - 1
-                        Cij += conj(A[i,k]) * B[k,j]
-                    end
-                    C[i,j] = Cij
+        for j in 1:n
+            for i in m:-1:1
+                Cij = (unit ? oA : conj(A[i,i])) * B[i,j]
+                for k in 1:i - 1
+                    Cij += conj(A[i,k]) * B[k,j]
                 end
-            end
-        else # isunitc == 'U'
-            @inbounds for j in 1:n
-                for i in m:-1:1
-                    Cij = oneunit(eltype(A)) * B[i,j]
-                    for k in 1:i - 1
-                        Cij += conj(A[i,k]) * B[k,j]
-                    end
-                    C[i,j] = Cij
-                end
+                C[i,j] = Cij
             end
         end
     end
@@ -1090,95 +1022,49 @@ function generic_mattrimul!(C::AbstractMatrix, uploc, isunitc, tfun::Function, A
     if mc != m || nc != N
         throw(DimensionMismatch("output has dimensions ($mc,$nc), should have ($m,$N)"))
     end
-    if uploc == 'U'
-        if isunitc == 'N'
-            if tfun === identity
-                @inbounds for i in 1:m
-                    for j in n:-1:1
-                        Cij = A[i,j] * tfun(B[j,j])
-                        for k in 1:j - 1
-                            Cij += A[i,k] * tfun(B[k,j])
-                        end
-                        C[i,j] = Cij
+    oB = oneunit(eltype(B))
+    unit = isunitc == 'U'
+    @inbounds if uploc == 'U'
+        if tfun === identity
+            for i in 1:m
+                for j in n:-1:1
+                    Cij = A[i,j] * (unit ? oB : B[j,j])
+                    for k in 1:j - 1
+                        Cij += A[i,k] * B[k,j]
                     end
-                end
-            else # tfun in (transpose, adjoint)
-                @inbounds for i in 1:m
-                    for j in 1:n
-                        Cij = A[i,j] * tfun(B[j,j])
-                        for k in j + 1:n
-                            Cij += A[i,k] * tfun(B[j,k])
-                        end
-                        C[i,j] = Cij
-                    end
+                    C[i,j] = Cij
                 end
             end
-        else # isunitc == 'U'
-            if tfun === identity
-                @inbounds for i in 1:m
-                    for j in n:-1:1
-                        Cij = A[i,j] * oneunit(eltype(B))
-                        for k in 1:j - 1
-                            Cij += A[i,k] * tfun(B[k,j])
-                        end
-                        C[i,j] = Cij
+        else # tfun in (transpose, adjoint)
+            for i in 1:m
+                for j in 1:n
+                    Cij = A[i,j] * (unit ? oB : tfun(B[j,j]))
+                    for k in j + 1:n
+                        Cij += A[i,k] * tfun(B[j,k])
                     end
-                end
-            else # tfun in (transpose, adjoint)
-                @inbounds for i in 1:m
-                    for j in 1:n
-                        Cij = A[i,j] * oneunit(eltype(B))
-                        for k in j + 1:n
-                            Cij += A[i,k] * tfun(B[j,k])
-                        end
-                        C[i,j] = Cij
-                    end
+                    C[i,j] = Cij
                 end
             end
         end
     else # uploc == 'L'
-        if isunitc == 'N'
-            if tfun === identity
-                @inbounds for i in 1:m
-                    for j in 1:n
-                        Cij = A[i,j] * tfun(B[j,j])
-                        for k in j + 1:n
-                            Cij += A[i,k] * tfun(B[k,j])
-                        end
-                        C[i,j] = Cij
+        if tfun === identity
+            for i in 1:m
+                for j in 1:n
+                    Cij = A[i,j] * (unit ? oB : B[j,j])
+                    for k in j + 1:n
+                        Cij += A[i,k] * B[k,j]
                     end
-                end
-            else # tfun in (transpose, adjoint)
-                @inbounds for i in 1:m
-                    for j in n:-1:1
-                        Cij = A[i,j] * tfun(B[j,j])
-                        for k in 1:j - 1
-                            Cij += A[i,k] * tfun(B[j,k])
-                        end
-                        C[i,j] = Cij
-                    end
+                    C[i,j] = Cij
                 end
             end
-        else # unitc == 'U'
-            if tfun === identity
-                @inbounds for i in 1:m
-                    for j in 1:n
-                        Cij = A[i,j] * oneunit(eltype(B))
-                        for k in j + 1:n
-                            Cij += A[i,k] * tfun(B[k,j])
-                        end
-                        C[i,j] = Cij
+        else # tfun in (transpose, adjoint)
+            for i in 1:m
+                for j in n:-1:1
+                    Cij = A[i,j] * (unit ? oB : tfun(B[j,j]))
+                    for k in 1:j - 1
+                        Cij += A[i,k] * tfun(B[j,k])
                     end
-                end
-            else # tfun in (transpose, adjoint)
-                @inbounds for i in 1:m
-                    for j in n:-1:1
-                        Cij = A[i,j] * oneunit(eltype(B))
-                        for k in 1:j - 1
-                            Cij += A[i,k] * tfun(B[j,k])
-                        end
-                        C[i,j] = Cij
-                    end
+                    C[i,j] = Cij
                 end
             end
         end
@@ -1198,48 +1084,26 @@ function generic_mattrimul!(C::AbstractMatrix, uploc, isunitc, ::Function, A::Ab
     if mc != m || nc != N
         throw(DimensionMismatch("output has dimensions ($mc,$nc), should have ($m,$N)"))
     end
-    if uploc == 'U'
-        if isunitc == 'N'
-            @inbounds for i in 1:m
-                for j in n:-1:1
-                    Cij = A[i,j] * conj(B[j,j])
-                    for k in 1:j - 1
-                        Cij += A[i,k] * conj(B[k,j])
-                    end
-                    C[i,j] = Cij
+    oB = oneunit(eltype(B))
+    unit = isunitc == 'U'
+    @inbounds if uploc == 'U'
+        for i in 1:m
+            for j in n:-1:1
+                Cij = A[i,j] * (unit ? oB : conj(B[j,j]))
+                for k in 1:j - 1
+                    Cij += A[i,k] * conj(B[k,j])
                 end
-            end
-        else # isunitc == 'U'
-            @inbounds for i in 1:m
-                for j in n:-1:1
-                    Cij = A[i,j] * oneunit(eltype(B))
-                    for k in 1:j - 1
-                        Cij += A[i,k] * conj(B[k,j])
-                    end
-                    C[i,j] = Cij
-                end
+                C[i,j] = Cij
             end
         end
     else # uploc == 'L'
-        if isunitc == 'N'
-            @inbounds for i in 1:m
-                for j in 1:n
-                    Cij = A[i,j] * conj(B[j,j])
-                    for k in j + 1:n
-                        Cij += A[i,k] * conj(B[k,j])
-                    end
-                    C[i,j] = Cij
+        for i in 1:m
+            for j in 1:n
+                Cij = A[i,j] * (unit ? oB : conj(B[j,j]))
+                for k in j + 1:n
+                    Cij += A[i,k] * conj(B[k,j])
                 end
-            end
-        else # unitc == 'U'
-            @inbounds for i in 1:m
-                for j in 1:n
-                    Cij = A[i,j] * oneunit(eltype(B))
-                    for k in j + 1:n
-                        Cij += A[i,k] * conj(B[k,j])
-                    end
-                    C[i,j] = Cij
-                end
+                C[i,j] = Cij
             end
         end
     end
